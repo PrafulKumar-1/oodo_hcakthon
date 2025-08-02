@@ -4,8 +4,15 @@ const { protect } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
-// Assign controller functions to routes.
-// The 'protect' middleware is used to secure these endpoints.
-router.route('/').post(protect, createIssue).get(protect, getIssues);
+// @route   POST /api/issues
+// @desc    Create a new civic issue
+// @access  Private (requires authentication)
+router.post('/', protect, createIssue);
+
+// @route   GET /api/issues
+// @desc    Get civic issues within a radius
+// @access  Private (requires authentication)
+router.get('/', protect, getIssues);
+
 
 module.exports = router;
