@@ -1,9 +1,9 @@
-const { PrismaClient, Prisma } = require('@prisma/client');
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 /**
  * Creates a new civic issue. The user must be authenticated.
- * @param {object} req - The Express request object. Expects { title, description, category, latitude, longitude } in req.body.
+ * @param {object} req - The Express request object.
  * @param {object} res - The Express response object.
  */
 const createIssue = async (req, res) => {
@@ -21,7 +21,7 @@ const createIssue = async (req, res) => {
         category,
         latitude,
         longitude,
-        reporterId: req.user.id, // The user ID comes from the 'protect' middleware
+        reporterId: req.user.id,
       },
     });
     res.status(201).json(issue);
@@ -33,41 +33,28 @@ const createIssue = async (req, res) => {
 
 /**
  * Fetches civic issues within a specified radius from a user's location.
- * Uses a raw PostGIS query for efficient geospatial filtering.
- * @param {object} req - The Express request object. Expects { lat, lon, radius } as query parameters.
+ * @param {object} req - The Express request object.
  * @param {object} res - The Express response object.
  */
 const getIssuesWithinRadius = async (req, res) => {
-  // Extract latitude, longitude, and radius from query parameters
-  const { lat, lon, radius = 5 } = req.query; // Default radius to 5km if not provided
+  const { lat, lon, radius = 5 } = req.query;
 
   if (!lat || !lon) {
     return res.status(400).json({ message: 'Latitude (lat) and longitude (lon) query parameters are required.' });
   }
 
-  // Convert query parameters to numbers
   const latitude = parseFloat(lat);
   const longitude = parseFloat(lon);
-  const searchRadius = parseFloat(radius) * 1000; // Convert radius from km to meters
+  const searchRadius = parseFloat(radius) * 1000;
 
   if (isNaN(latitude) || isNaN(longitude) || isNaN(searchRadius)) {
     return res.status(400).json({ message: 'Invalid location or radius parameters.' });
   }
 
   try {
-    // This raw SQL query uses PostGIS's ST_DWithin function to find all issues
-    // within the specified distance (in meters) from the user's coordinates.
-    // Using parameterized queries ($1, $2, $3) is crucial for preventing SQL injection.
     const issues = await prisma.$queryRaw`
       SELECT
-        i.id,
-        i.title,
-        i.description,
-        i.category,
-        i.status,
-        i.latitude,
-        i.longitude,
-        i."createdAt",
+        i.id, i.title, i.description, i.category, i.status, i.latitude, i.longitude, i."createdAt",
         json_build_object('name', u.name) as reporter
       FROM "Issue" as i
       JOIN "User" as u ON i."reporterId" = u.id
@@ -78,7 +65,6 @@ const getIssuesWithinRadius = async (req, res) => {
       )
       ORDER BY i."createdAt" DESC;
     `;
-
     res.status(200).json(issues);
   } catch (error) {
     console.error('Get Issues by Radius Error:', error);
@@ -86,8 +72,39 @@ const getIssuesWithinRadius = async (req, res) => {
   }
 };
 
+/**
+ * Updates the status of a specific issue. Requires admin privileges.
+ * @param {object} req - The Express request object. Expects issue ID in params and { status } in body.
+ * @param {object} res - The Express response object.
+ */
+const updateIssueStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  // Validate that the provided status is one of the allowed enum values
+  if (!['REPORTED', 'IN_PROGRESS', 'RESOLVED'].includes(status)) {
+    return res.status(400).json({ message: 'Invalid status value.' });
+  }
+
+  try {
+    const updatedIssue = await prisma.issue.update({
+      where: { id: id },
+      data: { status: status },
+    });
+    res.status(200).json(updatedIssue);
+  } catch (error) {
+    console.error('Update Issue Status Error:', error);
+    // Handle cases where the issue might not be found
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Issue not found.' });
+    }
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+};
+
 
 module.exports = {
   createIssue,
-  getIssues: getIssuesWithinRadius, // We are now exporting the new geo-enabled function
+  getIssues: getIssuesWithinRadius,
+  updateIssueStatus, // <-- Export the new function
 };
