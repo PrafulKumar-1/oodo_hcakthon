@@ -3,8 +3,11 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import HomePage from './pages/HomePage';
-import AdminDashboard from './pages/AdminDashboard'; // <-- Import AdminDashboard
+import AdminDashboard from './pages/AdminDashboard';
+import Header from './components/Header';
+import Footer from './components/Footer';
 import { useAuth } from './context/AuthContext';
+import './App.css';
 
 // This component now checks for role for admin routes
 const PrivateRoute = ({ children, adminOnly = false }) => {
@@ -31,22 +34,53 @@ const AppRedirect = () => {
     return <Navigate to="/dashboard" />;
 }
 
+// Layout component to wrap authenticated pages with Header and Footer
+const Layout = ({ children, hideFooter = false }) => {
+  const { isAuthenticated } = useAuth();
+  
+  return (
+    <div className="flex flex-col min-h-screen bg-white">
+      {isAuthenticated && <Header />}
+      <main className={`flex-grow ${isAuthenticated ? 'pt-16' : ''}`}>
+        {children}
+      </main>
+      {!hideFooter && <Footer />}
+    </div>
+  );
+};
+
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/login" element={
+        <Layout hideFooter={false}>
+          <LoginPage />
+        </Layout>
+      } />
+      <Route path="/register" element={
+        <Layout hideFooter={false}>
+          <RegisterPage />
+        </Layout>
+      } />
 
       {/* Redirect root path to the correct dashboard */}
-      <Route path="/" element={<PrivateRoute><AppRedirect /></PrivateRoute>} />
+      <Route path="/" element={
+        <Layout>
+          <PrivateRoute>
+            <AppRedirect />
+          </PrivateRoute>
+        </Layout>
+      } />
       
       {/* Citizen Dashboard */}
       <Route
         path="/dashboard"
         element={
-          <PrivateRoute>
-            <HomePage />
-          </PrivateRoute>
+          <Layout hideFooter={true}>
+            <PrivateRoute>
+              <HomePage />
+            </PrivateRoute>
+          </Layout>
         }
       />
 
@@ -54,9 +88,11 @@ function App() {
       <Route
         path="/admin"
         element={
-          <PrivateRoute adminOnly={true}>
-            <AdminDashboard />
-          </PrivateRoute>
+          <Layout>
+            <PrivateRoute adminOnly={true}>
+              <AdminDashboard />
+            </PrivateRoute>
+          </Layout>
         }
       />
     </Routes>
