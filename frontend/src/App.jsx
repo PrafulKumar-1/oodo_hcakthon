@@ -2,26 +2,14 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import HomePage from './pages/HomePage'; // <-- Import the new HomePage
 import { useAuth } from './context/AuthContext';
 
-// A placeholder for your main application page after login
-const HomePage = () => {
-  const { user, logout } = useAuth();
-  return (
-    <div>
-      <h1>Welcome, {user.user.name}!</h1>
-      <p>You are logged in.</p>
-      <button onClick={logout}>Logout</button>
-    </div>
-  );
-};
-
-// A simple component to protect routes
+// This component protects routes that require authentication
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated } = useAuth();
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
-
 
 function App() {
   return (
